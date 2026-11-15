@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+/*
+ * 日本語が読みやすいフォントを、端末に入っているものから順に使う。
+ * Web フォントを読み込まないので、表示が速く、外部通信も増えない。
+ */
+@theme {
+  --font-sans:
+    "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", Meiryo,
+    system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-900);
+  font-family: var(--font-sans);
+  /* 日本語の行間は少し広めのほうが読みやすい */
+  line-height: 1.7;
+}

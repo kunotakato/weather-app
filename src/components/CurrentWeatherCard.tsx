@@ -1,9 +1,18 @@
 import { weatherEmoji } from "@/lib/weatherIcon";
 import type { WeatherResponse } from "@/lib/types";
 
-export function CurrentWeatherCard({ data }: { data: WeatherResponse }) {
-  const { place, current, daily, today } = data;
-  const todayPop = daily.find((d) => d.date === today)?.pop ?? daily[0]?.pop;
+type Props = {
+  data: WeatherResponse;
+  /** 本当の「今日」（古い保存データの today ではなく、今の日付） */
+  today: string;
+  /** 古いデータを表示しているときの観測時刻（例: "11月13日 10:00"）。最新なら null */
+  observedLabel: string | null;
+};
+
+export function CurrentWeatherCard({ data, today, observedLabel }: Props) {
+  const { place, current, daily } = data;
+  // 今日の予報が無い（古すぎる保存データ）ときは「—」にする。別の日の値で代用しない
+  const todayPop = daily.find((d) => d.date === today)?.pop;
 
   return (
     <section
@@ -13,7 +22,9 @@ export function CurrentWeatherCard({ data }: { data: WeatherResponse }) {
       <h2 id="current-title" className="text-lg font-semibold">
         {place.name}
         {place.country && <span className="ml-2 text-sm opacity-80">{place.country}</span>}
-        <span className="ml-2 text-sm font-normal opacity-80">の現在の天気</span>
+        <span className="ml-2 text-sm font-normal opacity-80">
+          {observedLabel ? `の天気（${observedLabel} 時点）` : "の現在の天気"}
+        </span>
       </h2>
       <div className="mt-2 flex items-center gap-4">
         <span className="text-6xl" aria-hidden="true">

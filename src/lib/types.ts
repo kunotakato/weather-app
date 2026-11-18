@@ -23,6 +23,8 @@ export type HourlyForecast = {
   /** その土地の時刻で "HH:mm" */
   time: string;
   temp: number;
+  /** 体感温度。古い保存データには無いことがある */
+  feelsLike?: number;
   humidity: number;
   /** 降水確率（0〜100 の整数） */
   pop: number;
@@ -36,6 +38,8 @@ export type DailyForecast = {
   date: string;
   tempMin: number;
   tempMax: number;
+  /** 1日の中で最も高い体感温度（日中の体感の目安）。古い保存データには無いことがある */
+  feelsLikeMax?: number;
   /** 1日の平均湿度（%） */
   humidity: number;
   /** 1日の中で最も高い降水確率（%） */

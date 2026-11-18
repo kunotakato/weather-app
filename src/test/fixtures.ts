@@ -10,11 +10,17 @@ export function jst(dateTime: string): number {
 export function item(
   dateTime: string,
   temp: number,
-  opts: Partial<{ pop: number; humidity: number; id: number; desc: string; icon: string }> = {},
+  opts: Partial<{ pop: number; humidity: number; id: number; desc: string; icon: string; feels: number }> = {},
 ): OwmForecastItem {
   return {
     dt: jst(dateTime),
-    main: { temp, temp_min: temp - 1, temp_max: temp + 1, humidity: opts.humidity ?? 60 },
+    main: {
+      temp,
+      feels_like: opts.feels ?? temp - 1,
+      temp_min: temp - 1,
+      temp_max: temp + 1,
+      humidity: opts.humidity ?? 60,
+    },
     weather: [{ id: opts.id ?? 800, description: opts.desc ?? "晴天", icon: opts.icon ?? "01d" }],
     pop: opts.pop ?? 0,
   };

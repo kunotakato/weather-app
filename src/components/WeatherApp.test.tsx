@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchWeather } from "@/lib/openweather";
 import { fakeOwmFetch, jsonResponse } from "@/test/fixtures";
 import { WeatherApp } from "./WeatherApp";
@@ -28,10 +28,17 @@ async function stubApi(options: { rain?: boolean; weatherError?: string } = {}) 
   return fetchMock;
 }
 
+// テスト用データは 2026-11-13 の予報なので、「今」を 11/13 10:00（日本時間）に固定する。
+// （Date だけを偽物にし、タイマーは本物のまま動かす）
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-13T10:00:00+09:00"));
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("WeatherApp", () => {
-  beforeEach(() => {
-    vi.useRealTimers();
-  });
 
   it("最初に東京の現在の天気（気温・湿度・降水確率）と今日の予報を表示する", async () => {
     await stubApi();
@@ -169,9 +176,49 @@ describe("エラー対応（機能3）", () => {
     );
     render(<WeatherApp />);
 
-    // 保存しておいたデータがすぐに表示される
-    expect(screen.getByRole("region", { name: /東京都.*現在の天気/ })).toBeInTheDocument();
+    // 保存しておいたデータがすぐに表示される（「現在」ではなく観測時刻つき）
+    expect(screen.getByRole("region", { name: /東京都.*の天気（11月13日 10:00 時点）/ })).toBeInTheDocument();
     expect(await screen.findByRole("alert")).toHaveTextContent("天気サービスが一時的に使えません");
     expect(screen.getByText(/前回取得したデータ（.+ 時点）を表示しています/)).toBeInTheDocument();
+  });
+});
+
+describe("古い保存データの表示（「今日」「これから」がずれない）", () => {
+  /** 11/13 10:00 に東京のデータを保存した状態を作る */
+  async function saveOn1113() {
+    await stubApi();
+    const first = render(<WeatherApp />);
+    await screen.findByRole("region", { name: /東京都.*現在の天気/ });
+    first.unmount();
+    // 次に開いたときはサーバーが不調
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: "x", code: "UPSTREAM" }, 502)));
+  }
+
+  it("翌日に開くと、過ぎた日は選べず、「今日」扱いもしない", async () => {
+    await saveOn1113();
+    vi.setSystemTime(new Date("2026-11-14T08:00:00+09:00"));
+    render(<WeatherApp />);
+    await screen.findByText(/前回取得したデータ/);
+
+    // 11/13 はもう過去なので押せない。表示は 11/14 から
+    expect(screen.queryByRole("button", { name: /11月13日（金）/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /11月14日（土）/ })).toHaveAttribute("aria-pressed", "true");
+
+    // 「今の天気」は昨日の観測なので、今日のアドバイスには使わない（見出しは日付）
+    expect(screen.getByRole("region", { name: "👕 11月14日（土）の服装・傘アドバイス" })).toBeInTheDocument();
+
+    // グラフは過ぎた時刻を除く。8:00 時点では 0:00 の枠（0〜3時）は過去なので、
+    // テスト用データで次にある 12:00 の枠から
+    const chart = screen.getByRole("region", { name: "📈 これから24時間の予報" });
+    expect(within(chart).queryByRole("rowheader", { name: /^13日/ })).not.toBeInTheDocument();
+    expect(within(chart).getAllByRole("rowheader")[0]).toHaveTextContent("14日 12:00");
+  });
+
+  it("予報がすべて過去になるほど古ければ、その旨を案内する", async () => {
+    await saveOn1113();
+    vi.setSystemTime(new Date("2026-11-18T08:00:00+09:00"));
+    render(<WeatherApp />);
+    expect(await screen.findByText(/保存しているデータが古いため、表示できる予報がありません/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /服装・傘アドバイス/ })).not.toBeInTheDocument();
   });
 });

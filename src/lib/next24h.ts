@@ -21,7 +21,7 @@ export const POINTS_IN_24H = 8;
  * 日ごとにまとめた予報を、時刻順の 1 本の列に戻して先頭から 24 時間分を取り出す。
  * OpenWeatherMap の予報は「次の 3 時間枠」から始まるので、先頭が「これから」になる。
  */
-export function next24Hours(daily: DailyForecast[]): ChartPoint[] {
+export function next24Hours(daily: DailyForecast[], fromSlot = ""): ChartPoint[] {
   const all = daily.flatMap((day) =>
     day.hours.map((h) => ({
       key: `${day.date} ${h.time}`,
@@ -34,7 +34,10 @@ export function next24Hours(daily: DailyForecast[]): ChartPoint[] {
       isDay: h.isDay,
     })),
   );
-  return all.slice(0, POINTS_IN_24H).map((p, i, list) => ({
+  // 古い保存データを表示しているときは、もう過ぎた時刻を除く（fromSlot より前の枠）
+  return all
+    .filter((p) => p.key >= fromSlot)
+    .slice(0, POINTS_IN_24H).map((p, i, list) => ({
     ...p,
     newDay: i > 0 && p.date !== list[i - 1].date,
   }));

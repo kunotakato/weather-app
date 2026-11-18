@@ -53,7 +53,7 @@ type OwmCurrent = {
 
 export type OwmForecastItem = {
   dt: number;
-  main: { temp: number; temp_min: number; temp_max: number; humidity: number };
+  main: { temp: number; feels_like: number; temp_min: number; temp_max: number; humidity: number };
   weather: OwmWeather[];
   pop: number;
 };
@@ -138,6 +138,7 @@ export function toDailyForecasts(items: OwmForecastItem[], offsetSeconds: number
     const hours: HourlyForecast[] = group.map((item) => ({
       time: localTime(item.dt, offsetSeconds),
       temp: round1(item.main.temp),
+      feelsLike: round1(item.main.feels_like),
       humidity: item.main.humidity,
       pop: Math.round(item.pop * 100),
       weatherId: item.weather[0]?.id ?? 800,
@@ -149,6 +150,7 @@ export function toDailyForecasts(items: OwmForecastItem[], offsetSeconds: number
       date,
       tempMin: round1(Math.min(...group.map((i) => i.main.temp_min))),
       tempMax: round1(Math.max(...group.map((i) => i.main.temp_max))),
+      feelsLikeMax: round1(Math.max(...group.map((i) => i.main.feels_like))),
       humidity: Math.round(group.reduce((sum, i) => sum + i.main.humidity, 0) / group.length),
       pop: Math.max(...hours.map((h) => h.pop)),
       weatherId: representative.weather[0]?.id ?? 800,

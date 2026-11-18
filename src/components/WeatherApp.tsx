@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { useIsClient } from "@/hooks/useIsClient";
 import { loadWeatherCache, saveWeatherCache } from "@/lib/cache";
+import { formatLocalDateTime } from "@/lib/date";
+import { viewAt } from "@/lib/freshness";
 import { getRain, getWeather } from "@/lib/client";
 import { AppError, isFetchFailure } from "@/lib/errors";
 import type { WeatherQuery } from "@/lib/openweather";
@@ -52,6 +54,8 @@ function WeatherScreen() {
   const [rain, setRain] = useState<RainPoint[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AppError | null>(null);
+  /** 「今」の時刻。過ぎた日・時刻を見分けるのに使う（データを取得した時点で更新） */
+  const [now, setNow] = useState(() => Date.now());
   const [lastAction, setLastAction] = useState<LastAction>({
     type: "query",
     query: initial?.query ?? DEFAULT_QUERY,
@@ -60,6 +64,7 @@ function WeatherScreen() {
   /** 取得に成功したとき: 画面を更新して保存。日本国内なら Yahoo! の雨情報も取りに行く */
   const showWeather = useCallback((query: WeatherQuery, result: WeatherResponse) => {
     const now = Date.now();
+    setNow(now);
     setData(result);
     setSavedAt(now);
     setFromCache(false);
@@ -129,7 +134,9 @@ function WeatherScreen() {
     return () => window.removeEventListener("online", onOnline);
   }, []);
 
-  const selectedDay = data?.daily.find((d) => d.date === selectedDate) ?? data?.daily[0];
+  // 古い保存データでも「今日」「これから」がずれないよう、今の日時で表示する範囲を決め直す
+  const view = data ? viewAt(data, now) : null;
+  const selectedDay = view?.daily.find((d) => d.date === selectedDate) ?? view?.daily[0];
   const isStale = data !== null && (fromCache || (error !== null && isFetchFailure(error.code)));
 
   return (
@@ -146,25 +153,39 @@ function WeatherScreen() {
       {/* 表示できるデータがまだ無いときだけ、全体の「読み込み中」を出す */}
       {!data && loading && <LoadingSkeleton />}
 
-      {data && selectedDay && (
+      {/* 保存データが古すぎて、今日以降の予報が 1 つも残っていないとき */}
+      {data && view && !selectedDay && (
+        <p className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+          保存しているデータが古いため、表示できる予報がありません。通信できる場所で再試行してください。
+        </p>
+      )}
+
+      {data && view && selectedDay && (
         <div aria-busy={loading} className={`space-y-5 transition-opacity ${loading ? "opacity-60" : ""}`}>
-          <CurrentWeatherCard data={data} />
+          <CurrentWeatherCard
+            data={data}
+            today={view.today}
+            observedLabel={
+              isStale ? formatLocalDateTime(data.current.observedAt, data.timezoneOffset) : null
+            }
+          />
           {rain && <RainNowcast points={rain} />}
           <AdviceCard
             day={selectedDay}
-            current={selectedDay.date === data.today ? data.current : undefined}
+            // 「今の天気」は今日観測したものだけ、今日のアドバイスに使う
+            current={selectedDay.date === view.today && view.currentIsToday ? data.current : undefined}
           />
-          <Next24hChart daily={data.daily} />
+          <Next24hChart daily={view.daily} fromSlot={view.fromSlot} />
           <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
             <ForecastCalendar
               // 場所が変わったらカレンダーの表示月をリセットする
               key={`${data.place.lat},${data.place.lon}`}
-              daily={data.daily}
-              today={data.today}
+              daily={view.daily}
+              today={view.today}
               selectedDate={selectedDay.date}
               onSelect={setSelectedDate}
             />
-            <DayDetail day={selectedDay} isToday={selectedDay.date === data.today} />
+            <DayDetail day={selectedDay} isToday={selectedDay.date === view.today} />
           </div>
         </div>
       )}

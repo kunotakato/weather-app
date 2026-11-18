@@ -24,8 +24,14 @@ const POP_H = 90;
 const AXIS_H = 34; // 時刻ラベルの高さ
 const GAP = 16; // 2 段の間
 
-export function Next24hChart({ daily }: { daily: DailyForecast[] }) {
-  const points = next24Hours(daily);
+type Props = {
+  daily: DailyForecast[];
+  /** この日時より前の枠は過ぎているので表示しない（古い保存データ用） */
+  fromSlot?: string;
+};
+
+export function Next24hChart({ daily, fromSlot }: Props) {
+  const points = next24Hours(daily, fromSlot);
   const boxRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [active, setActive] = useState<number | null>(null);

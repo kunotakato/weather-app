@@ -77,6 +77,19 @@ describe("服装のアドバイス", () => {
   });
 });
 
+describe("明日以降も体感温度を使う", () => {
+  it("予報の体感温度が低ければ、そちらで服装を決めて注意も出す", () => {
+    // 最高気温 21℃（長袖シャツ）だが、日中の体感は最高 15℃ → ジャケット
+    const advice = getAdvice(day({ tempMax: 21, tempMin: 15, feelsLikeMax: 15 }));
+    expect(advice.clothing).toContain("ジャケット");
+    expect(advice.notes).toContain("日中の体感温度は最高15℃ほど。気温より寒く感じます。");
+  });
+
+  it("体感温度が無い古い保存データでは、気温で判断する", () => {
+    expect(getAdvice(day({ tempMax: 21, feelsLikeMax: undefined })).clothing).toContain("長袖シャツ");
+  });
+});
+
 describe("追加の注意", () => {
   it("寒暖差・強風・雪を知らせる", () => {
     const advice = getAdvice(day({ tempMin: 2, tempMax: 12, weatherId: 600 }), { ...current, windSpeed: 9.5 });

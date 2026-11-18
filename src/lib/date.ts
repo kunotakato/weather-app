@@ -26,3 +26,14 @@ export function formatDateJa(date: string): string {
   const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${m}月${d}日（${weekday}）`;
 }
+
+/** その土地の日時 "YYYY-MM-DD HH:mm"（文字列のまま大小を比べられる） */
+export function localDateTime(unixSeconds: number, offsetSeconds: number): string {
+  return toLocal(unixSeconds, offsetSeconds).toISOString().slice(0, 16).replace("T", " ");
+}
+
+/** その土地の日時を "11月13日 10:00" の形で */
+export function formatLocalDateTime(unixSeconds: number, offsetSeconds: number): string {
+  const d = toLocal(unixSeconds, offsetSeconds);
+  return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日 ${localTime(unixSeconds, offsetSeconds)}`;
+}

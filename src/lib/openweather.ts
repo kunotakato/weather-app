@@ -1,4 +1,5 @@
 import { localDate, localHour, localTime } from "./date";
+import type { ErrorCode } from "./errors";
 import type {
   CurrentWeather,
   DailyForecast,
@@ -23,6 +24,7 @@ export class WeatherApiError extends Error {
   constructor(
     message: string,
     public status: number,
+    public code: ErrorCode,
   ) {
     super(message);
     this.name = "WeatherApiError";
@@ -66,21 +68,23 @@ type Fetch = typeof fetch;
 async function getJson<T>(url: URL, fetchImpl: Fetch): Promise<T> {
   let res: Response;
   try {
-    res = await fetchImpl(url, { cache: "no-store" });
+    // 8 秒待っても返事がなければあきらめる（画面がずっと「読み込み中」にならないように）
+    res = await fetchImpl(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
   } catch {
-    throw new WeatherApiError("天気サービスに接続できませんでした。", 502);
+    throw new WeatherApiError("天気サービスに接続できませんでした。", 502, "UPSTREAM");
   }
   if (res.status === 401) {
     throw new WeatherApiError(
       "API キーが無効です。キー発行直後は有効になるまで最大 2 時間ほどかかります。",
       502,
+      "INVALID_KEY",
     );
   }
   if (res.status === 429) {
-    throw new WeatherApiError("API の呼び出し回数の上限に達しました。少し待ってから試してください。", 503);
+    throw new WeatherApiError("API の呼び出し回数の上限に達しました。少し待ってから試してください。", 503, "RATE_LIMIT");
   }
   if (!res.ok) {
-    throw new WeatherApiError(`天気サービスがエラーを返しました（${res.status}）。`, 502);
+    throw new WeatherApiError(`天気サービスがエラーを返しました（${res.status}）。`, 502, "UPSTREAM");
   }
   return (await res.json()) as T;
 }
@@ -183,7 +187,7 @@ export async function fetchWeather(
       fetchImpl,
     );
     if (found.length === 0) {
-      throw new WeatherApiError(`「${query.city}」が見つかりませんでした。`, 404);
+      throw new WeatherApiError(`「${query.city}」が見つかりませんでした。`, 404, "NOT_FOUND");
     }
     place = toPlace(found[0]);
   } else {

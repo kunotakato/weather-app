@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const apiKey = process.env.OPENWEATHER_API_KEY;
   if (!apiKey) {
     return Response.json(
-      { error: "サーバーに OPENWEATHER_API_KEY が設定されていません。" },
+      { error: "サーバーに OPENWEATHER_API_KEY が設定されていません。", code: "NO_KEY" },
       { status: 500 },
     );
   }
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const query = parseWeatherQuery(request.nextUrl.searchParams);
   if (!query) {
     return Response.json(
-      { error: "都市名（city）か、緯度・経度（lat, lon）を指定してください。" },
+      { error: "都市名（city）か、緯度・経度（lat, lon）を指定してください。", code: "BAD_QUERY" },
       { status: 400 },
     );
   }
@@ -35,9 +35,12 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof WeatherApiError) {
-      return Response.json({ error: error.message }, { status: error.status });
+      return Response.json({ error: error.message, code: error.code }, { status: error.status });
     }
     console.error(error);
-    return Response.json({ error: "天気の取得中に予期しないエラーが起きました。" }, { status: 500 });
+    return Response.json(
+      { error: "天気の取得中に予期しないエラーが起きました。", code: "UNKNOWN" },
+      { status: 500 },
+    );
   }
 }
